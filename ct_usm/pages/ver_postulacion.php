@@ -41,7 +41,7 @@ $fnStmt = $pdo->prepare("SELECT fn_cumple_equipo_minimo(?) AS resultado");
 $fnStmt->execute([$id_post]);
 $cumple_equipo = $fnStmt->fetchColumn();
 
-// Evaluación (si existe)
+// Evaluación existente (se consulta la más reciente para mostrar)
 $evalStmt = $pdo->prepare(
     'SELECT ev.*, CONCAT(u.nombre, " ", u.apellido) AS evaluador
      FROM EVALUACION ev
@@ -51,6 +51,20 @@ $evalStmt = $pdo->prepare(
 );
 $evalStmt->execute([$id_post]);
 $evaluacion = $evalStmt->fetch();
+
+// Verificar si la evaluación existente pertenece al usuario actual (ROL 2)
+// Si ya hay evaluación de OTRO evaluador, ROL 2 no puede registrar/editar
+$puede_evaluar = false;
+if ($id_rol === 2) {
+    if (!$evaluacion) {
+        // No hay evaluación aún: cualquier evaluador puede registrar
+        $puede_evaluar = in_array($p['estado'], ['Enviada', 'En Revisión']);
+    } else {
+        // Ya hay evaluación: solo el mismo evaluador puede editar
+        $puede_evaluar = ((int)$evaluacion['id_usuario'] === $id_usr)
+                      && in_array($p['estado'], ['Enviada', 'En Revisión']);
+    }
+}
 
 // Log de estados
 $logStmt = $pdo->prepare(
@@ -77,6 +91,12 @@ $log_estados = $logStmt->fetchAll();
         &nbsp; <?= badge_estado($p['estado']) ?>
     </div>
     <div class="d-flex gap-2">
+        <!-- Botón volver -->
+        <a href="app.php?page=<?= $id_rol === 1 ? 'mis_postulaciones' : 'evaluaciones' ?>"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Volver
+        </a>
+
         <?php if ($id_rol === 1 && $p['id_usuario_creador'] == $id_usr && $p['estado'] === 'Borrador'): ?>
             <a href="app.php?page=editar_postulacion&id=<?= $id_post ?>" class="btn btn-outline-primary btn-sm">
                 <i class="bi bi-pencil me-1"></i>Editar
@@ -85,12 +105,13 @@ $log_estados = $logStmt->fetchAll();
                 <input type="hidden" name="accion" value="enviar">
                 <input type="hidden" name="id_postulacion" value="<?= $id_post ?>">
                 <button type="submit" class="btn btn-success btn-sm"
-                        onclick="return confirm('¿Enviar esta postulación?')">
+                        onclick="return confirm('\u00bfEnviar esta postulación?')">
                     <i class="bi bi-send me-1"></i>Enviar
                 </button>
             </form>
         <?php endif; ?>
-        <?php if ($id_rol === 2 && in_array($p['estado'], ['Enviada','En Revisión'])): ?>
+
+        <?php if ($puede_evaluar): ?>
             <button class="btn btn-usm btn-sm" data-bs-toggle="collapse" data-bs-target="#panelEval">
                 <i class="bi bi-clipboard-check me-1"></i>
                 <?= $evaluacion ? 'Editar evaluación' : 'Registrar evaluación' ?>
@@ -218,12 +239,14 @@ $log_estados = $logStmt->fetchAll();
     <!-- Col derecha -->
     <div class="col-lg-4">
 
-        <!-- Panel evaluación ROL 2 -->
-        <?php if ($id_rol === 2 && in_array($p['estado'], ['Enviada','En Revisión'])): ?>
+        <!-- Panel evaluación: solo si puede_evaluar -->
+        <?php if ($puede_evaluar): ?>
         <div class="collapse <?= !$evaluacion ? 'show' : '' ?> mb-3" id="panelEval">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white py-2">
-                    <h3 class="h6 fw-semibold mb-0"><i class="bi bi-clipboard-check me-2"></i>Registrar evaluación</h3>
+                    <h3 class="h6 fw-semibold mb-0"><i class="bi bi-clipboard-check me-2"></i>
+                        <?= $evaluacion ? 'Editar evaluación' : 'Registrar evaluación' ?>
+                    </h3>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="actions/evaluacion.php">
@@ -256,7 +279,7 @@ $log_estados = $logStmt->fetchAll();
         </div>
         <?php endif; ?>
 
-        <!-- Evaluación existente -->
+        <!-- Evaluación existente (solo lectura si no es el evaluador asignado) -->
         <?php if ($evaluacion): ?>
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-header bg-white py-2">
@@ -274,6 +297,15 @@ $log_estados = $logStmt->fetchAll();
                     <p class="small mt-2 text-start border-top pt-2"><?= htmlspecialchars($evaluacion['comentario']) ?></p>
                 <?php endif; ?>
             </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Aviso si otro evaluador ya tiene asignada esta postulación -->
+        <?php if ($id_rol === 2 && $evaluacion && (int)$evaluacion['id_usuario'] !== $id_usr): ?>
+        <div class="alert alert-warning small py-2">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Esta postulación ya fue asignada a <strong><?= htmlspecialchars($evaluacion['evaluador']) ?></strong>.
+            Solo ese evaluador puede modificarla.
         </div>
         <?php endif; ?>
 
