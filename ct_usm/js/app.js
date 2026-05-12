@@ -1,5 +1,64 @@
 // CT-USM — app.js
 
+// ── Bloquear navegación browser (atrás/adelante/F5/recarga) ──────────────────
+// Técnica: reemplazar el historial y capturar popstate + beforeunload
+(function () {
+    // 1) Reemplazar la entrada actual en el historial con un estado marcado
+    //    para detectar cuando el usuario vuelve a esta página desde "atrás".
+    if (window.history && window.history.replaceState) {
+        history.replaceState({ noBack: true }, document.title, window.location.href);
+    }
+
+    // 2) Cuando el usuario pulsa Atrás/Adelante en el browser, redirigir al inicio.
+    window.addEventListener('popstate', function (e) {
+        if (e.state && e.state.noBack) {
+            // Ya estamos en la página correcta, volver a empujar el estado
+            history.pushState({ noBack: true }, document.title, window.location.href);
+        } else {
+            // Navegar al inicio de la aplicación
+            window.location.replace('app.php?page=inicio');
+        }
+    });
+
+    // 3) Bloquear F5 y Ctrl+R / Cmd+R (recarga de página)
+    //    Mostramos confirmación nativa del browser; si el usuario confirma,
+    //    se le redirige al inicio en lugar de recargar la misma URL con POST/GET.
+    window.addEventListener('keydown', function (e) {
+        const esMac = navigator.platform.toUpperCase().includes('MAC');
+        const recarga = e.key === 'F5' ||
+                        (e.key === 'r'  && (esMac ? e.metaKey : e.ctrlKey));
+        if (recarga) {
+            e.preventDefault();
+            window.location.replace('app.php?page=inicio');
+        }
+    });
+
+    // 4) Capturar cierre/recarga para advertir al usuario
+    //    Solo se activa si hay un formulario con datos sin guardar.
+    window.addEventListener('beforeunload', function (e) {
+        if (document.body.dataset.formDirty === '1') {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    // 5) Marcar formularios como "sucios" cuando el usuario escribe en ellos
+    document.addEventListener('input', function (e) {
+        if (e.target.closest('form')) {
+            document.body.dataset.formDirty = '1';
+        }
+    });
+    // Limpiar la marca al enviar el formulario
+    document.addEventListener('submit', function () {
+        document.body.dataset.formDirty = '0';
+    });
+})();
+
+// ── Redirigir solicitudes GET con ?page= desde la barra de URL ───────────────
+// Asegura que cada vez que el router carga una página POST-redirect-GET
+// no sea re-enviable con F5 (la acción PHP ya hace redirect después de POST).
+// ─────────────────────────────────────────────────────────────────────────────
+
 function showTab(n) {
     document.querySelectorAll('.tab-section').forEach(el => el.classList.add('d-none'));
     const tab = document.getElementById('tab' + n);
