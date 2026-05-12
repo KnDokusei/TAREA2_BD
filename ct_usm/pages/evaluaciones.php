@@ -7,22 +7,83 @@ $pdo    = getDB();
 $id_rol = (int)$_SESSION['id_rol'];
 $id_usr = (int)$_SESSION['id_usuario'];
 
-// Postulaciones pendientes de evaluar (Enviada o En Revisión)
-$pendientes = $pdo->query(
-    "SELECT v.* FROM VW_POSTULACIONES_COMPLETAS v
-     WHERE v.estado IN ('Enviada','En Revisión')
-     ORDER BY v.fecha_postulacion ASC"
-)->fetchAll();
+// ------------------------------------------------------------------
+// Postulaciones pendientes de evaluar
+// ROL 2: solo las que le pertenecen (ya tiene fila en EVALUACION con
+//        su id_usuario) o que aún no tienen evaluador asignado.
+// ROL 3: todas las pendientes.
+// ------------------------------------------------------------------
+if ($id_rol === 2) {
+    $stmtPend = $pdo->prepare(
+        "SELECT v.* FROM VW_POSTULACIONES_COMPLETAS v
+         WHERE v.estado IN ('Enviada','En Revisión')
+           AND (
+               -- Sin evaluador asignado aún
+               NOT EXISTS (SELECT 1 FROM EVALUACION e WHERE e.id_postulacion = v.id_postulacion)
+               OR
+               -- O asignada a este evaluador
+               EXISTS (SELECT 1 FROM EVALUACION e
+                       WHERE e.id_postulacion = v.id_postulacion
+                         AND e.id_usuario = ?)
+           )
+         ORDER BY v.fecha_postulacion ASC"
+    );
+    $stmtPend->execute([$id_usr]);
+} else {
+    $stmtPend = $pdo->query(
+        "SELECT v.* FROM VW_POSTULACIONES_COMPLETAS v
+         WHERE v.estado IN ('Enviada','En Revisión')
+         ORDER BY v.fecha_postulacion ASC"
+    );
+}
+$pendientes = $stmtPend->fetchAll();
 
-// Evaluaciones ya registradas
-$evaluadas = $pdo->query(
-    "SELECT ev.*, v.numero_postulacion, v.objetivo, v.nombre_empresa, v.estado,
-            CONCAT(u.nombre,' ',u.apellido) AS evaluador
-     FROM EVALUACION ev
-     JOIN VW_POSTULACIONES_COMPLETAS v ON ev.id_postulacion = v.id_postulacion
-     JOIN USUARIO u ON ev.id_usuario = u.id_usuario
-     ORDER BY ev.fecha_evaluacion DESC"
-)->fetchAll();
+// ------------------------------------------------------------------
+// Evaluaciones registradas
+// Se usa una subquery con MAX(id_evaluacion) por postulación+usuario
+// para garantizar UNA sola fila por combinación, eliminando cualquier
+// duplicado residual que pueda existir en la tabla EVALUACION.
+// ROL 2: solo las propias. ROL 3: todas.
+// ------------------------------------------------------------------
+if ($id_rol === 2) {
+    $stmtEval = $pdo->prepare(
+        "SELECT ev.id_evaluacion, ev.id_postulacion, ev.id_usuario,
+                ev.puntaje, ev.comentario, ev.fecha_evaluacion,
+                v.numero_postulacion, v.objetivo, v.nombre_empresa, v.estado,
+                CONCAT(u.nombre,' ',u.apellido) AS evaluador
+         FROM EVALUACION ev
+         JOIN (
+             -- Tomar solo el id_evaluacion más reciente por (postulación, usuario)
+             -- Esto neutraliza cualquier duplicado residual en BD
+             SELECT MAX(id_evaluacion) AS max_id
+             FROM EVALUACION
+             WHERE id_usuario = ?
+             GROUP BY id_postulacion
+         ) dedup ON ev.id_evaluacion = dedup.max_id
+         JOIN VW_POSTULACIONES_COMPLETAS v ON ev.id_postulacion = v.id_postulacion
+         JOIN USUARIO u ON ev.id_usuario = u.id_usuario
+         ORDER BY ev.fecha_evaluacion DESC"
+    );
+    $stmtEval->execute([$id_usr]);
+} else {
+    // ROL 3 (admin): muestra todas, también deduplicadas por (postulacion, usuario)
+    $stmtEval = $pdo->query(
+        "SELECT ev.id_evaluacion, ev.id_postulacion, ev.id_usuario,
+                ev.puntaje, ev.comentario, ev.fecha_evaluacion,
+                v.numero_postulacion, v.objetivo, v.nombre_empresa, v.estado,
+                CONCAT(u.nombre,' ',u.apellido) AS evaluador
+         FROM EVALUACION ev
+         JOIN (
+             SELECT MAX(id_evaluacion) AS max_id
+             FROM EVALUACION
+             GROUP BY id_postulacion, id_usuario
+         ) dedup ON ev.id_evaluacion = dedup.max_id
+         JOIN VW_POSTULACIONES_COMPLETAS v ON ev.id_postulacion = v.id_postulacion
+         JOIN USUARIO u ON ev.id_usuario = u.id_usuario
+         ORDER BY ev.fecha_evaluacion DESC"
+    );
+}
+$evaluadas = $stmtEval->fetchAll();
 ?>
 
 <ul class="nav nav-tabs mb-3" id="evalTabs">
