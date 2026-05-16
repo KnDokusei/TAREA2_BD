@@ -40,22 +40,7 @@ Luego ve a la pestaña **SQL** y ejecuta cada archivo en orden:
 | 3     | `ddl_extension_t2.sql`         | Agrega ROL, USUARIO, LOG, EVALUACION             |
 | 4     | `objetos_t2.sql`               | VIEW, FUNCTION, PROCEDURE, TRIGGER               |
 
-> Pegar el contenido en la pestaña **SQL** y presiona "Continuar".
-
-#### ⚠️ Si ya tienes la BD instalada y aparecen evaluaciones duplicadas
-
-Ejecuta **una sola vez** el siguiente script de limpieza:
-
-| Archivo                          | Cuándo usar                                                                 |
-|----------------------------------|-----------------------------------------------------------------------------|
-| `fix_duplicados_evaluacion.sql`  | Solo si la BD ya estaba instalada y presenta duplicados en EVALUACION       |
-
-Este script:
-1. Elimina filas duplicadas en `EVALUACION`, conservando solo la más reciente por postulación + usuario
-2. Agrega el constraint `UNIQUE (id_postulacion, id_usuario)` si aún no existe
-3. Muestra una consulta de verificación al final (si no devuelve filas, la limpieza fue exitosa)
-
-> **No ejecutar** en una instalación limpia desde cero — `ddl_extension_t2.sql` ya incluye el constraint.
+> Pegar el contenido en la pestaña **SQL** y presionar "Continuar".
 
 ---
 
@@ -99,7 +84,6 @@ Todos tienen contraseña: **`password`**
 | `patricia.leal`  | Coordinador (ROL 2)    | Revisar y evaluar postulaciones                 |
 | `admin`          | Administrador (ROL 3)  | Gestionar evaluadores y asignaciones            |
 
-
 ---
 
 ### 6. Objetos SQL implementados
@@ -115,12 +99,13 @@ Todos tienen contraseña: **`password`**
 
 ### 7. Supuestos adoptados
 
-1. La contraseña de todos los usuarios de prueba es `password` (hash BCrypt compatible con PHP `password_verify`).
-2. Al "Asignar evaluador" desde el panel Admin, se cambia el estado de Enviada → En Revisión automáticamente.
-3. El equipo mínimo requerido es 3 profesores + 5 estudiantes, validado tanto en la FUNCTION SQL como en el Stored Procedure al enviar.
-4. El cronograma máximo es 36 semanas, validado en el Stored Procedure.
-5. La tabla `DOCUMENTO` existe en el DDL original pero no se implementó el módulo de carga de archivos, ya que el enunciado no lo especifica como funcionalidad web obligatoria.
-6. La búsqueda avanzada por "evaluador asignado" filtra por postulaciones que tienen al menos una evaluación registrada por ese usuario.
+1. El responsable académico (ROL 1) puede ver en el listado general todas las postulaciones que no estén en estado Borrador, independientemente de quién las creó. Esto permite tener contexto del proceso sin exponer borradores ajenos.
+2. La contraseña de todos los usuarios de prueba es `password` (hash BCrypt compatible con PHP `password_verify`).
+3. Al "Asignar evaluador" desde el panel Admin, se cambia el estado de Enviada → En Revisión automáticamente.
+4. El equipo mínimo requerido es 3 profesores + 5 estudiantes, validado tanto en la FUNCTION SQL como en el Stored Procedure al enviar.
+5. El cronograma máximo es 36 semanas, validado en el Stored Procedure.
+6. La tabla `DOCUMENTO` existe en el DDL original pero no se implementó el módulo de carga de archivos, ya que el enunciado no lo especifica como funcionalidad web obligatoria.
+7. La búsqueda avanzada por "evaluador asignado" filtra postulaciones que tienen una evaluación registrada o asignada a ese evaluador, independientemente de si ya ingresó una nota.
 
 ---
 
