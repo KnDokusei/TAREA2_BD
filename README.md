@@ -28,20 +28,35 @@
 **Importar los scripts SQL en este orden exacto:**
 
 En phpMyAdmin, selecciona la base de datos (o créala primero):
-- Haz clic en "Nueva" en el panel izquierdo
-- Nombre: `ct_usm_postulaciones` → clic en Crear
+- Haz clic en **"Nueva"** en el panel izquierdo
+- Nombre: `ct_usm_postulaciones` → clic en **Crear**
 
 Luego ve a la pestaña **SQL** y ejecuta cada archivo en orden:
 
-| Orden | Archivo               | Descripción                          |
-|-------|-----------------------|--------------------------------------|
-| 1     | `ddl_ct_usm.sql`      | Crea todas las tablas base           |
-| 2     | `dml_ct_usm.sql`      | Inserta datos de prueba              |
-| 3     | `ddl_extension_t2.sql`| Agrega ROL, USUARIO, LOG, EVALUACION |
-| 4     | `objetos_t2.sql`      | VIEW, FUNCTION, PROCEDURE, TRIGGER   |
+| Orden | Archivo                        | Descripción                                      |
+|-------|--------------------------------|--------------------------------------------------|
+| 1     | `ddl_ct_usm.sql`               | Crea todas las tablas base                       |
+| 2     | `dml_ct_usm.sql`               | Inserta datos de prueba                          |
+| 3     | `ddl_extension_t2.sql`         | Agrega ROL, USUARIO, LOG, EVALUACION             |
+| 4     | `objetos_t2.sql`               | VIEW, FUNCTION, PROCEDURE, TRIGGER               |
 
 > Para importar: pestaña **Importar** → Seleccionar archivo → Ejecutar.
 > O pega el contenido en la pestaña **SQL** y presiona "Continuar".
+
+#### ⚠️ Si ya tienes la BD instalada y aparecen evaluaciones duplicadas
+
+Ejecuta **una sola vez** el siguiente script de limpieza:
+
+| Archivo                          | Cuándo usar                                                                 |
+|----------------------------------|-----------------------------------------------------------------------------|
+| `fix_duplicados_evaluacion.sql`  | Solo si la BD ya estaba instalada y presenta duplicados en EVALUACION       |
+
+Este script:
+1. Elimina filas duplicadas en `EVALUACION`, conservando solo la más reciente por postulación + usuario
+2. Agrega el constraint `UNIQUE (id_postulacion, id_usuario)` si aún no existe
+3. Muestra una consulta de verificación al final (si no devuelve filas, la limpieza fue exitosa)
+
+> **No ejecutar** en una instalación limpia desde cero — `ddl_extension_t2.sql` ya incluye el constraint.
 
 ---
 
@@ -127,12 +142,12 @@ ct_usm/
 
 ### 7. Objetos SQL implementados
 
-| Objeto              | Nombre                       | Dónde se usa                             |
-|---------------------|------------------------------|------------------------------------------|
-| **VIEW**            | `VW_POSTULACIONES_COMPLETAS` | Listado, búsqueda, inicio, detalle       |
-| **FUNCTION**        | `fn_cumple_equipo_minimo()`  | Mis postulaciones, ver postulación       |
-| **STORED PROCEDURE**| `sp_enviar_postulacion()`    | Botón "Enviar" en postulaciones          |
-| **TRIGGER**         | `trg_log_cambio_estado`      | Registra automáticamente cambios estado  |
+| Objeto               | Nombre                       | Dónde se usa                             |
+|----------------------|------------------------------|------------------------------------------|
+| **VIEW**             | `VW_POSTULACIONES_COMPLETAS` | Listado, búsqueda, inicio, detalle       |
+| **FUNCTION**         | `fn_cumple_equipo_minimo()`  | Mis postulaciones, ver postulación       |
+| **STORED PROCEDURE** | `sp_enviar_postulacion()`    | Botón "Enviar" en postulaciones          |
+| **TRIGGER**          | `trg_log_cambio_estado`      | Registra automáticamente cambios estado  |
 
 ---
 
