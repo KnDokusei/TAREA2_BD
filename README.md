@@ -151,5 +151,5 @@ ct_usm/
 
 ### 9. Bonus implementados
 
-- ✅ **Bootstrap 5.3** — Diseño completo, responsive, con sidebar, topbar y badges de estado.
-- ✅ **Protección SQL Injection** — Todos los queries usan `PDO` con prepared statements (`$pdo->prepare(...)->execute([...])`). Ninguna variable se interpola directamente en SQL.
+- **Bootstrap 5.3** — Diseño completo, responsive, con sidebar, topbar y badges de estado.
+- **Protección SQL Injection** — Todos los queries usan `PDO` con prepared statements (`$pdo->prepare(...)->execute([...])`). Ninguna variable se interpola directamente en SQL.

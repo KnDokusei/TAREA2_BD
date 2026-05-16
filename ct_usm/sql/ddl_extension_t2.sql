@@ -8,8 +8,6 @@ USE ct_usm_postulaciones;
 
 -- ============================================================
 -- NUEVOS ESTADOS (extender catálogo existente)
--- Borrador : postulación creada pero no enviada (ROL 1)
--- Enviada  : postulación enviada formalmente (ROL 1 → ROL 2)
 -- ============================================================
 
 INSERT INTO ESTADO_POSTULACION (descripcion) VALUES
@@ -17,14 +15,14 @@ INSERT INTO ESTADO_POSTULACION (descripcion) VALUES
     ('Enviada');
 
 -- ============================================================
--- ROL (catálogo de roles del sistema)
+-- ROL
 -- ============================================================
 
 CREATE TABLE ROL (
     id_rol      INT         NOT NULL AUTO_INCREMENT,
     nombre_rol  VARCHAR(50) NOT NULL,
     descripcion VARCHAR(100) NULL,
-    CONSTRAINT pk_rol    PRIMARY KEY (id_rol),
+    CONSTRAINT pk_rol        PRIMARY KEY (id_rol),
     CONSTRAINT uq_nombre_rol UNIQUE (nombre_rol)
 ) ENGINE=InnoDB;
 
@@ -58,8 +56,6 @@ CREATE TABLE USUARIO (
 
 -- ============================================================
 -- EXTENSIÓN DE POSTULACION
--- Se agrega id_usuario_creador para vincular al ROL 1
--- que creó la postulación
 -- ============================================================
 
 ALTER TABLE POSTULACION
@@ -69,7 +65,6 @@ ALTER TABLE POSTULACION
 
 -- ============================================================
 -- LOG_ESTADO_POSTULACION
--- Registra cada cambio de estado (alimentado por TRIGGER)
 -- ============================================================
 
 CREATE TABLE LOG_ESTADO_POSTULACION (
@@ -93,7 +88,10 @@ CREATE TABLE LOG_ESTADO_POSTULACION (
 
 -- ============================================================
 -- EVALUACION
--- Registrada por ROL 2 (Coordinador) sobre una postulación
+-- UNIQUE KEY (id_postulacion, id_usuario) → garantiza que
+-- cada evaluador solo pueda tener UNA evaluación por postulación.
+-- Sin este constraint, ON DUPLICATE KEY y el SELECT+UPDATE/INSERT
+-- del PHP no tienen efecto y se generan filas duplicadas.
 -- ============================================================
 
 CREATE TABLE EVALUACION (
@@ -103,7 +101,8 @@ CREATE TABLE EVALUACION (
     puntaje          DECIMAL(5,2)  NULL,
     comentario       TEXT          NULL,
     fecha_evaluacion DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_evaluacion       PRIMARY KEY (id_evaluacion),
+    CONSTRAINT pk_evaluacion            PRIMARY KEY (id_evaluacion),
+    CONSTRAINT uq_eval_post_usuario     UNIQUE (id_postulacion, id_usuario),
     CONSTRAINT fk_eval_postulacion
         FOREIGN KEY (id_postulacion) REFERENCES POSTULACION(id_postulacion),
     CONSTRAINT fk_eval_usuario
@@ -112,22 +111,17 @@ CREATE TABLE EVALUACION (
 
 -- ============================================================
 -- DATOS DE PRUEBA — USUARIOS
--- Contraseña de todos: password123
--- Hash generado con password_hash('password123', PASSWORD_BCRYPT)
 -- ============================================================
 
 INSERT INTO USUARIO (nombre_usuario, password_hash, nombre, apellido, email, id_rol, id_persona) VALUES
-    -- ROL 1: Postulantes (vinculados a personas tipo Profesor ya existentes)
     ('carlos.ramirez',  '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Carlos',   'Ramírez',   'carlos.ramirez@usm.cl',   1, 1),
     ('ana.gonzalez',    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Ana',      'González',  'ana.gonzalez@usm.cl',     1, 2),
     ('pedro.munoz',     '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Pedro',    'Muñoz',     'pedro.munoz@usm.cl',      1, 3),
     ('maria.torres',    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'María',    'Torres',    'maria.torres@usm.cl',     1, 4),
     ('jorge.soto',      '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Jorge',    'Soto',      'jorge.soto@usm.cl',       1, 5),
-    -- ROL 2: Coordinadores/Evaluadores (sin vínculo a PERSONA)
     ('rodrigo.vega',    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Rodrigo',  'Vega',      'rodrigo.vega@ctusm.cl',   2, NULL),
     ('patricia.leal',   '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Patricia', 'Leal',      'patricia.leal@ctusm.cl',  2, NULL),
     ('hernan.bravo',    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Hernán',   'Bravo',     'hernan.bravo@ctusm.cl',   2, NULL),
-    -- ROL 3: Administrador
     ('admin',           '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin',    'CT-USM',    'admin@ctusm.cl',          3, NULL);
 
 -- ============================================================
@@ -142,6 +136,7 @@ UPDATE POSTULACION SET id_usuario_creador = 5 WHERE id_postulacion IN (5, 10);
 
 -- ============================================================
 -- Datos de prueba — EVALUACION
+-- (id_postulacion, id_usuario) es UNIQUE: no puede haber duplicados
 -- ============================================================
 
 INSERT INTO EVALUACION (id_postulacion, id_usuario, puntaje, comentario) VALUES
@@ -155,8 +150,7 @@ INSERT INTO EVALUACION (id_postulacion, id_usuario, puntaje, comentario) VALUES
     (9,  8, 68.00, 'Presupuesto elevado, justificación de AR insuficiente.');
 
 -- ============================================================
--- Datos de prueba — LOG_ESTADO_POSTULACION (historial manual)
--- Simula cambios de estado anteriores al trigger
+-- Datos de prueba — LOG_ESTADO_POSTULACION
 -- ============================================================
 
 INSERT INTO LOG_ESTADO_POSTULACION (id_postulacion, id_estado_ant, id_estado_nvo, id_usuario, observacion) VALUES
