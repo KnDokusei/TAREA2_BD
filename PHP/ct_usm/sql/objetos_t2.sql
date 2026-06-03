@@ -3,14 +3,13 @@
 -- CT-USM Postulaciones
 -- Ejecutar DESPUÉS de ddl_ct_usm.sql, dml_ct_usm.sql
 -- y ddl_extension_t2.sql
--- En phpMyAdmin: pegar en el panel SQL y ejecutar
+-- En phpMyAdmin: importar este archivo completo
 -- ============================================================
 
 USE ct_usm_postulaciones;
 
 -- ============================================================
 -- VIEW: VW_POSTULACIONES_COMPLETAS
--- Usada en: Listado general, Búsqueda avanzada, Inicio
 -- ============================================================
 
 CREATE OR REPLACE VIEW VW_POSTULACIONES_COMPLETAS AS
@@ -54,20 +53,18 @@ JOIN TAMANO_EMPRESA     te ON e.id_tamano            = te.id_tamano
 LEFT JOIN USUARIO       u  ON p.id_usuario_creador   = u.id_usuario;
 
 -- ============================================================
--- FUNCTION, PROCEDURE y TRIGGER requieren cambio de delimitador
--- En phpMyAdmin: pegar el bloque siguiente completo en el panel SQL
+-- A partir de aquí se necesita cambiar el delimitador
+-- phpMyAdmin lo maneja automáticamente al importar el archivo
 -- ============================================================
 
 DELIMITER $$
 
 -- ============================================================
 -- FUNCTION: fn_cumple_equipo_minimo
--- Retorna 'CUMPLE' o 'NO CUMPLE' según mínimo de equipo
--- Mínimo: 3 profesores + 5 estudiantes
--- Usada en: ver_postulacion.php, nueva_postulacion.php (validación visual)
 -- ============================================================
 
-DROP FUNCTION IF EXISTS fn_cumple_equipo_minimo;
+DROP FUNCTION IF EXISTS fn_cumple_equipo_minimo$$
+
 CREATE FUNCTION fn_cumple_equipo_minimo(p_id_postulacion INT)
 RETURNS VARCHAR(10)
 DETERMINISTIC
@@ -94,23 +91,21 @@ END$$
 
 -- ============================================================
 -- STORED PROCEDURE: sp_enviar_postulacion
--- Valida equipo mínimo y cronograma (máx 36 semanas)
--- Cambia estado de Borrador → Enviada si todo es válido
--- Usada en: actions/postulacion.php (botón Enviar)
 -- ============================================================
 
-DROP PROCEDURE IF EXISTS sp_enviar_postulacion;
+DROP PROCEDURE IF EXISTS sp_enviar_postulacion$$
+
 CREATE PROCEDURE sp_enviar_postulacion(
     IN  p_id_postulacion INT,
     IN  p_id_usuario     INT,
     OUT p_resultado      VARCHAR(200)
 )
 BEGIN
-    DECLARE v_estado_actual      INT;
-    DECLARE v_cumple_equipo      VARCHAR(10);
-    DECLARE v_total_semanas      INT DEFAULT 0;
-    DECLARE v_id_borrador        INT;
-    DECLARE v_id_enviada         INT;
+    DECLARE v_estado_actual INT;
+    DECLARE v_cumple_equipo VARCHAR(10);
+    DECLARE v_total_semanas INT DEFAULT 0;
+    DECLARE v_id_borrador   INT;
+    DECLARE v_id_enviada    INT;
 
     SELECT id_estado INTO v_id_borrador
     FROM ESTADO_POSTULACION WHERE descripcion = 'Borrador' LIMIT 1;
@@ -152,12 +147,10 @@ END$$
 
 -- ============================================================
 -- TRIGGER: trg_log_cambio_estado
--- Registra automáticamente en LOG_ESTADO_POSTULACION
--- cada vez que cambia el campo id_estado de POSTULACION
--- Se activa en: cualquier UPDATE sobre POSTULACION
 -- ============================================================
 
-DROP TRIGGER IF EXISTS trg_log_cambio_estado;
+DROP TRIGGER IF EXISTS trg_log_cambio_estado$$
+
 CREATE TRIGGER trg_log_cambio_estado
 AFTER UPDATE ON POSTULACION
 FOR EACH ROW
